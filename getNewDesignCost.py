@@ -34,8 +34,8 @@ loginSelect.select_by_value("1")
 WebDriverWait(chrome, 5).until(EC.text_to_be_present_in_element((By.ID, "lblLogin_AuthenticationMethod_Description"), 'Specify network'))
 
 # Defines and fills in the user credentials
-username = 'michael chaplin'
-password = 'Bubbis456'
+username = '' # In the format "first last"
+password = ''
 usernameElem = chrome.find_element_by_id("tbxUserName")
 usernameElem.send_keys(username)
 passwordElem = chrome.find_element_by_id("tbxPassword")
