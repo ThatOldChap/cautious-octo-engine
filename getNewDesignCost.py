@@ -97,7 +97,6 @@ for item in affItemList:
     
     # Gather the Original BOM into a list of lists
     cells = []
-    originalBOMTable = []
     originalBOMCost = []
 
     # Finds the original BOM and skips over items like E and M parts that don't have a BOM
@@ -118,9 +117,7 @@ for item in affItemList:
 
     # Parse the list of table cell texts and take the necessary data for the original BOM
     for i in range(0, len(cells), 8):
-        c1 = cells[i+1] # Part Number
         c2 = cells[i+2] # Quantity
-        c3 = cells[i+3] # Find Number
         c7 = cells[i+7] # Design Cost
         if i < 1:
             c8 = 'Extended Cost'
@@ -130,7 +127,6 @@ for item in affItemList:
         else:
             c8 = float(c2) * float(c7)    # Extended Cost
             originalBOMCost.append(c8)
-        originalBOMTable.append([c1, c2, c3, c7, c8])
 
     # Calculate the total cost of the originalBOM
     originalBOMCostTotal = round(sum(originalBOMCost, 1), 2)
@@ -138,7 +134,6 @@ for item in affItemList:
 
     # Gather the Proposed BOM into a list of lists
     cells = []
-    proposedBOMTable = []
     proposedBOMCost = []
     proposedBOMTableElem = chrome.find_element_by_id("dgProposedBOM")
     proposedBOMCellElemList = proposedBOMTableElem.find_elements_by_tag_name('td')
@@ -150,9 +145,7 @@ for item in affItemList:
 
     # Parse the list of table cell texts and take the necessary data for the proposed BOM
     for i in range(0, len(cells), 9):
-        c1 = cells[i+1] # Part Number
         c2 = cells[i+2] # Quantity
-        c3 = cells[i+3] # Find Number
         c8 = cells[i+8] # Design Cost
         if i < 1:
             c9 = 'Extended Cost'
@@ -162,7 +155,6 @@ for item in affItemList:
         else:
             c9 = float(c2) * float(c8)    # Extended Cost
             proposedBOMCost.append(c9)
-        proposedBOMTable.append([c1, c2, c3, c8, c9])
 
     # Calculate the total cost of the proposedBOM
     proposedBOMCostTotal = round(sum(proposedBOMCost, 1), 2)
