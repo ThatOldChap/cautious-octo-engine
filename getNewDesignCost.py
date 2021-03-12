@@ -26,9 +26,8 @@ loginSelect.select_by_value("1")
 WebDriverWait(chrome, 5).until(EC.text_to_be_present_in_element((By.ID, "lblLogin_AuthenticationMethod_Description"), 'Specify network'))
 
 # Defines and fills in the user credentials
-# Fill in credentials :)
-username = ''
-password = ''
+username = 'michael chaplin'
+password = 'Bubbis456'
 usernameElem = chrome.find_element_by_id("tbxUserName")
 usernameElem.send_keys(username)
 passwordElem = chrome.find_element_by_id("tbxPassword")
@@ -71,6 +70,9 @@ print("Affected items are: {}".format(affItemList))
 # Loop through each affected item to gather the necessary data
 for item in affItemList:
 
+    # TODO: Make the table parsing happen on multiple threads to speed it up fast    
+    print('Processing {}...'.format(item))
+    
     # Select the affected item
     affItemSelect = Select(chrome.find_element_by_id("dlOptions_AffectedItems"))
     affItemSelect.select_by_visible_text(item)
@@ -79,25 +81,43 @@ for item in affItemList:
     # Gather the Original BOM into a list of lists
     cells = []
     originalBOMTable = []
+    originalPartList = []
     originalBOMTableElem = chrome.find_element_by_id("dgOriginalBOM")
-    cellElemList = originalBOMTableElem.find_elements_by_tag_name('td')    
+    originalBOMCellElemList = originalBOMTableElem.find_elements_by_tag_name('td')    
 
     # Convert the WebElement items into a list of table cell texts
-    for cell in cellElemList:
+    for cell in originalBOMCellElemList:
         cells.append(cell.text)
 
-    # Parse the list of table cell texts and convert into a proper row
+    # Parse the list of table cell texts and take the necessary data
     for i in range(0, len(cells), 8):
-        c0 = cells[i+0]
-        c1 = cells[i+1]
-        c2 = cells[i+2]
-        c3 = cells[i+3]
-        c4 = cells[i+4]
-        c5 = cells[i+5]
-        c6 = cells[i+6]
-        c7 = cells[i+7]
-        originalBOMTable.append([c0, c1, c2, c3, c4, c5, c6, c7])
+        #c0 = cells[i+0]
+        c1 = cells[i+1] # Part Number
+        c2 = cells[i+2] # Quantity
+        c3 = cells[i+3] # Find Number
+        #c4 = cells[i+4]
+        #c5 = cells[i+5]
+        #c6 = cells[i+6]
+        c7 = cells[i+7] # Design Cost
+        if i < 1:
+            c8 = 'Extended Cost'
+        else:
+            c8 = float(c2) * float(c7)    # Extended Cost
+        originalBOMTable.append([c1, c2, c3, c7, c8])
+        originalPartList.append(c1)
 
+    # Gather the Proposed BOM into a list of lists
+    cells = []
+    proposedBOMTable = []
+    proposedBOMTableElem = chrome.find_element_by_id("dgProposedBOM")
+    proposedBOMCellElemList = proposedBOMTableElem.find_elements_by_tag_name('td')
+
+    # Convert the WebElement items into a list of table cell texts
+    for cell in proposedBOMCellElemList:
+        cells.append(cell.text)
+
+    # Search the originalPartList and check the index of each table to find the new extended cost of each item
+
+    
     for i in originalBOMTable:
         print(i)
-    
