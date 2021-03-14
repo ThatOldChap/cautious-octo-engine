@@ -3,7 +3,8 @@
 # Enter an ECO# and this will open a Selenium browser, user enters login info and then
 # proceeds to the ECO and generates the affected item cost difference
 
-import sys, math
+import sys, math, time
+from tabulate import tabulate
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import Select
@@ -11,6 +12,60 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
+
+# Calculates the total cost of a BOM
+def calcTotalCost(item, nameOfBOM, itemBOM, *colNames):
+	
+	# Check how many rows are in the BOM
+    print(f'Processing {nameOfBOM} BOM of {item}...')
+    itemBOMRows = itemBOM.find_elements_by_tag_name('tr')
+    numRows = len(itemBOMRows)
+	
+	# Find the column numbers of the quantity and design cost columns
+    headerRow = itemBOMRows[0]    
+    headerCols = headerRow.find_elements_by_tag_name('td')
+    colNums = getTableColNums(headerCols, colNames)
+    qtyCol = colNums[colNames[0]]
+    costCol = colNums[colNames[1]]
+        
+	# Calculate and increment the extended cost of each BOM line item
+    totalBOMCost = 0
+    for row in range(1, numRows):
+        qty = chrome.find_element_by_css_selector(f'#dg{nameOfBOM}BOM > tbody > tr:nth-child({row + 1}) > td:nth-child({qtyCol + 1})').text
+        cost = chrome.find_element_by_css_selector(f'#dg{nameOfBOM}BOM > tbody > tr:nth-child({row + 1}) > td:nth-child({costCol + 1})').text         
+        if not cost == '' and not cost == ' ':
+            totalBOMCost += (float(qty) * float(cost))
+	
+	# Format the final cost of the BOM
+    totalBOMCost = round(totalBOMCost, 2)    
+    print(f'Finished processing {nameOfBOM} BOM of {item}\n')
+    return totalBOMCost
+
+# Returns a dictionary for column indices for a provided list of <td> elements and column names Strings
+def getTableColNums(headerCols, colNames):
+
+	# Initialize some helper variables
+	colNum = 0
+	colIndexDict = {}
+	
+	# Add all the requested columns to the dictionary
+	# colIndexDict = {'Qty': '', 'Value': ''} for the normal use
+	for colName in colNames:
+		colIndexDict[colName] = ''
+
+	# Finds the column numbers for each requested column
+	for col in headerCols:		
+		# Checks if the colName was requested and assigns the colNum to the dict as a value
+		if not colIndexDict.get(col.text, -1) == -1:
+			colIndexDict[col.text] = colNum
+		
+		# Increment counter		
+		colNum += 1
+	
+	return colIndexDict
+
+# Start the timer
+startTime = time.time()
 
 # Get the ecoURL from the user when they run the script
 if len(sys.argv) > 1:
@@ -61,22 +116,14 @@ costSelect.select_by_visible_text(costAtt)
 # Waits for webpage to switch fields to the design cost attribute
 WebDriverWait(chrome, 5).until(EC.text_to_be_present_in_element((By.ID, "lblParentItem_Field"), costAtt))
 
-# Check the Find # box to include it as a field in the tables
-findBox = chrome.find_element_by_id("cblBOMFields_DisplayOpt_3")
-if not findBox.is_selected():
-    findBox.click()
-    print('Adding Find # column to tables')
-    WebDriverWait(chrome, 5).until(EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#dgOriginalBOM > tbody > tr.Header > td:nth-child(4)'), 'Find'))
-
 # Check to see how many affected items there are
 affItemSelect = Select(chrome.find_element_by_id("dlOptions_AffectedItems"))
 affItemsOptions = affItemSelect.options
 affItemList = []
 for option in affItemsOptions:
     if not option.text[0] == 'D':
-            affItemList.append(option.text)
-    else:
-        continue
+        # Ignores 'D' type items 
+        affItemList.append(option.text)
 
 print("\nAffected items are: {}\n".format(affItemList))
 costData = []
@@ -95,83 +142,42 @@ for item in affItemList:
     # Get the original design costo
     originalDesignCost = round(float(chrome.find_element_by_id("lblParentItem_OldValue").text), 2)
     
-    # Gather the Original BOM into a list of lists
-    cells = []
-    originalBOMCost = []
-
     # Finds the original BOM and skips over items like E and M parts that don't have a BOM
     try:
         originalBOMTableElem = chrome.find_element_by_id("dgOriginalBOM")
     except NoSuchElementException:
-        print('Skipping over {} as it does not have a BOM\n'.format(item))
-        continue        
+        print('Skipping over {} as it does not have an original BOM\n'.format(item))
+        continue         
     
-    originalBOMCellElemList = originalBOMTableElem.find_elements_by_tag_name('td')
-    print('Processing original BOM of {}...'.format(item))
-
-    # Convert the WebElement items into a list of table cell texts
-    for cell in originalBOMCellElemList:
-        cells.append(cell.text)
-
-   #print(cells)
-
-    # Parse the list of table cell texts and take the necessary data for the original BOM
-    for i in range(0, len(cells), 8):
-        c2 = cells[i+2] # Quantity
-        c7 = cells[i+7] # Design Cost
-        if i < 1:
-            c8 = 'Extended Cost'
-        elif c7 == ' ':
-            # Blank value is a string with 1 space in here ' '
-            continue
-        else:
-            c8 = float(c2) * float(c7)    # Extended Cost
-            originalBOMCost.append(c8)
-
-    # Calculate the total cost of the originalBOM
-    originalBOMCostTotal = round(sum(originalBOMCost, 1), 2)
-    print('Finished processing original BOM of {}\n'.format(item))
-
-    # Gather the Proposed BOM into a list of lists
-    cells = []
-    proposedBOMCost = []
-    proposedBOMTableElem = chrome.find_element_by_id("dgProposedBOM")
-    proposedBOMCellElemList = proposedBOMTableElem.find_elements_by_tag_name('td')
-    print('Processing proposed BOM of {}...'.format(item))
-
-    # Convert the WebElement items into a list of table cell texts
-    for cell in proposedBOMCellElemList:
-        cells.append(cell.text)
-
-    # Parse the list of table cell texts and take the necessary data for the proposed BOM
-    for i in range(0, len(cells), 9):
-        c2 = cells[i+2] # Quantity
-        c8 = cells[i+8] # Design Cost
-        if i < 1:
-            c9 = 'Extended Cost'
-        elif c8 == '':
-            # Blank value is a an empty string here ''
-            continue
-        else:
-            c9 = float(c2) * float(c8)    # Extended Cost
-            proposedBOMCost.append(c9)
-
-    # Calculate the total cost of the proposedBOM
-    proposedBOMCostTotal = round(sum(proposedBOMCost, 1), 2)
-    print('Finished processing proposed BOM of {}\n'.format(item))
+    # Finds the proposed BOM and skips over items like E and M parts that don't have a BOM
+    try:
+        proposedBOMTableElem = chrome.find_element_by_id("dgProposedBOM")
+    except NoSuchElementException:
+        print('Skipping over {} as it does not have a proposed BOM\n'.format(item))
+        continue 
+    
+    # Process the BOMs to caluclate the total costs
+    originalBOMCostTotal = calcTotalCost(item, 'Original', originalBOMTableElem, 'Qty', 'Value')
+    proposedBOMCostTotal = calcTotalCost(item, 'Proposed', proposedBOMTableElem, 'Qty', 'New Value')
 
     # Store the data to iterate back through later
     costData.append([item, originalDesignCost, originalBOMCostTotal, proposedBOMCostTotal])
 
+# Stop the timer
+stopTime = time.time()
+duration = round(stopTime - startTime, 2)
+
 # Close the browser
-print('Preparing summary...\n')
+print(f'Finished processing in {duration} seconds. Now preparing summary...\n')
 chrome.quit()
 
 # Process the costData and display to the user
-for i in range(len(costData)):
-    affItemData = costData[i]
-    print('Affected Item {}:\n \
-          Original Design Cost = $ {}\n \
-          Original BOM Design Cost Total = $ {}\n \
-          Proposed BOM Design Cost Total = $ {}\n \
-          '.format(affItemData[0], affItemData[1], affItemData[2], affItemData[3]))
+headers = ['Affected Item', 'Original Item\n Cost ($)', 'Total Original\n BOM Cost ($)', 'Total Proposed\n BOM Cost ($)']
+print(tabulate(costData, headers=headers, tablefmt="presto"))
+# for i in range(len(costData)):
+    # affItemData = costData[i]
+    # print('Affected Item {}:\n \
+          # Original Design Cost = $ {}\n \
+          # Original BOM Design Cost Total = $ {}\n \
+          # Proposed BOM Design Cost Total = $ {}\n \
+          # '.format(affItemData[0], affItemData[1], affItemData[2], affItemData[3]))
