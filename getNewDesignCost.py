@@ -67,18 +67,20 @@ def getTableColNums(headerCols, colNames):
 # Start the timer
 startTime = time.time()
 
-# Get the ecoURL from the user when they run the script
+# Get the ECO Number from the user when they run the script
 if len(sys.argv) > 1:
     # Get url from the command line.
-    ecoURL = str(sys.argv[1])
-    print('\nProcessing url: {}'.format(ecoURL))
+    ecoNum = str(sys.argv[1])
+    print(f'\nProcessing ECO: {ecoNum}')
+
+ecoSearchURL = 'https://plm.mdsaero.com/Omnify7/Apps/Desktop/Search/Default.aspx?obj=1&fld0=Change%20Number&val0=' + ecoNum
 
 # Launch the Selenium browser and navigate to the ECO in Omnify
 options = Options()
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
 chrome = webdriver.Chrome(options=options)
 chrome.maximize_window()
-chrome.get(ecoURL)
+chrome.get(ecoSearchURL)
 
 # Set the login type to LDAP
 loginSelect = Select(chrome.find_element_by_id("dlLogin_AuthenticationMethod"))
@@ -101,11 +103,12 @@ loginButton = chrome.find_element_by_id("btnLogin")
 loginButton.click()
 
 # Waits for the user to sign into their account and for the webpage to load, set with a 60 sec timeout
-WebDriverWait(chrome, 5).until(EC.url_contains(ecoURL))
+WebDriverWait(chrome, 5).until(EC.text_to_be_present_in_element((By.ID, "dg_Results_lnkObjectForm_0"), ecoNum))
+ecoID = chrome.find_element_by_id("dg_Results_lnkObjectForm_0").get_attribute('href').split('=')[1]
 
 # Click on the 'Affected Items' tab and waits for webpage to switch to the affected item tab of the ECO
-newUrl = ecoURL.replace('Object', 'Reports/BOMFieldCheck')
-chrome.get(newUrl)
+ecoURL = 'https://plm.mdsaero.com/Omnify7/Apps/Desktop/Change/Reports/BOMFieldCheck.aspx?id=XXXX'.replace('XXXX', ecoID)
+chrome.get(ecoURL)
 WebDriverWait(chrome, 5).until(EC.text_to_be_present_in_element((By.ID, "lblPageOptionsAITitle"), 'Affected Items'))
 
 # Change the 'Check Field' to 'DESIGN COST PER UNIT (CAD)'
@@ -174,10 +177,3 @@ chrome.quit()
 # Process the costData and display to the user
 headers = ['Affected Item', 'Original Item\n Cost ($)', 'Total Original\n BOM Cost ($)', 'Total Proposed\n BOM Cost ($)']
 print(tabulate(costData, headers=headers, tablefmt="presto"))
-# for i in range(len(costData)):
-    # affItemData = costData[i]
-    # print('Affected Item {}:\n \
-          # Original Design Cost = $ {}\n \
-          # Original BOM Design Cost Total = $ {}\n \
-          # Proposed BOM Design Cost Total = $ {}\n \
-          # '.format(affItemData[0], affItemData[1], affItemData[2], affItemData[3]))
